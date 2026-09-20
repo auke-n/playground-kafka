@@ -1,0 +1,25 @@
+# Local environment and secrets
+.env
+**/.env
+!**/.env.example
+
+# Terraform state and plans
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Node.js
+node_modules/
+dist/
+
+# Editor and operating system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
