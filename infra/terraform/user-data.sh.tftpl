@@ -1,0 +1,15 @@
+#!/bin/bash
+set -euxo pipefail
+
+dnf install -y docker git
+systemctl enable --now docker
+
+git clone --branch "${repository_ref}" --depth 1 "${repository_url}" /opt/kafka-learning-lab
+cd /opt/kafka-learning-lab
+cp platform/compose/.env.example platform/compose/.env
+cat >> platform/compose/.env <<'EOF'
+HTTP_HOST_BIND_ADDRESS=0.0.0.0
+KAFKA_HOST_BIND_ADDRESS=127.0.0.1
+EOF
+
+docker compose --file platform/compose/docker-compose.yml up --detach --build

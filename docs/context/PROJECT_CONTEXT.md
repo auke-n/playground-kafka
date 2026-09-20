@@ -33,6 +33,7 @@ Build a practical Kafka learning lab for a DevOps engineer preparing for a proje
 - Kafka UI and Grafana will not be publicly exposed without authentication or network restriction.
 - Docker Desktop is required to run the local lab on the current Windows development machine; it was not available during the initial implementation check.
 - The persistent local Kafka volume is initialized by a one-shot root container so the broker's non-root runtime user can write KRaft metadata on Docker Desktop.
+- AWS deployment targets `eu-central-1` on a Graviton `t4g.large` instance administered through SSM. Only ports 8000 and 8080 are public; Kafka remains loopback-bound.
 
 ## Context maintenance
 
