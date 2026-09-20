@@ -89,6 +89,7 @@ services:
       - "${HTTP_HOST_BIND_ADDRESS:-127.0.0.1}:8000:8000"
 
   payment-processor:
+    profiles: ["automatic"]
     build:
       context: ../..
       dockerfile: services/Dockerfile
@@ -101,6 +102,7 @@ services:
         condition: service_healthy
 
   fulfillment-processor:
+    profiles: ["automatic"]
     build:
       context: ../..
       dockerfile: services/Dockerfile

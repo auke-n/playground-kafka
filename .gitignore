@@ -8,6 +8,7 @@
 *.tfstate.*
 *.tfplan
 .terraform/
+terraform.exe
 
 # Python
 __pycache__/

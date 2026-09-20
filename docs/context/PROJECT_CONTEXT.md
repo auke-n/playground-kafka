@@ -34,6 +34,10 @@ Build a practical Kafka learning lab for a DevOps engineer preparing for a proje
 - Docker Desktop is required to run the local lab on the current Windows development machine; it was not available during the initial implementation check.
 - The persistent local Kafka volume is initialized by a one-shot root container so the broker's non-root runtime user can write KRaft metadata on Docker Desktop.
 - AWS deployment targets `eu-central-1` on a Graviton `t4g.large` instance administered through SSM. Only ports 8000 and 8080 are public; Kafka remains loopback-bound.
+- Terraform state is stored in the existing S3 bucket `personal-project-tfstate-156275709793-eu-central-1-an` at `playground-kafka/terraform.tfstate` with encryption and S3 lockfiles.
+- Terraform uses the local AWS shared configuration profile `borys` for provider and backend access.
+- EC2 startup installs explicit ARM64 Docker Compose and Buildx plugins because the Amazon Linux Docker package can provide an older Buildx plugin that is incompatible with Compose builds.
+- The web UI defaults to manually stepped event processing; automatic consumers use the Compose `automatic` profile.
 
 ## Context maintenance
 

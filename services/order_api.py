@@ -15,6 +15,8 @@ from services.common import configure_logging, consumer, decode, new_event, prod
 configure_logging()
 kafka_producer = producer()
 timeline: dict[str, list[dict[str, object]]] = {}
+order_details: dict[str, dict[str, object]] = {}
+manual_stages: dict[str, set[str]] = {}
 timeline_lock = Lock()
 observer_stop = Event()
 
@@ -84,9 +86,42 @@ def order_timeline(order_id: str) -> dict[str, object]:
 @app.post("/orders", status_code=status.HTTP_202_ACCEPTED)
 def create_order(request: OrderRequest) -> dict[str, str]:
     order_id = request.order_id or f"order-{uuid4()}"
-    event = new_event("order.created", order_id, {"order_id": order_id, **request.model_dump(exclude={"order_id"})})
+    details = {"order_id": order_id, **request.model_dump(exclude={"order_id"})}
+    event = new_event("order.created", order_id, details)
     try:
         publish(kafka_producer, "order.created", event)
     except RuntimeError as error:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
+    with timeline_lock:
+        order_details[order_id] = details
+        manual_stages[order_id] = {"order.created"}
     return {"status": "accepted", "order_id": order_id, "event_id": event["event_id"]}
+
+
+def publish_manual_stage(order_id: str, prerequisite: str, topic: str, event_type: str, data: dict[str, object]) -> dict[str, str]:
+    with timeline_lock:
+        if order_id not in order_details:
+            raise HTTPException(status_code=404, detail="Create this order in the current UI session first.")
+        if prerequisite not in manual_stages[order_id]:
+            raise HTTPException(status_code=409, detail=f"Complete {prerequisite} first.")
+        if topic in manual_stages[order_id]:
+            return {"status": "already_completed", "order_id": order_id, "topic": topic}
+    publish(kafka_producer, topic, new_event(event_type, order_id, data))
+    with timeline_lock:
+        manual_stages[order_id].add(topic)
+    return {"status": "published", "order_id": order_id, "topic": topic}
+
+
+@app.post("/orders/{order_id}/manual/payment-request")
+def request_payment(order_id: str) -> dict[str, str]:
+    return publish_manual_stage(order_id, "order.created", "payment.requested", "payment.requested", {"order_id": order_id, "amount": order_details.get(order_id, {}).get("amount")})
+
+
+@app.post("/orders/{order_id}/manual/payment-complete")
+def complete_payment(order_id: str) -> dict[str, str]:
+    return publish_manual_stage(order_id, "payment.requested", "payment.completed", "payment.completed", {"order_id": order_id, "amount": order_details.get(order_id, {}).get("amount"), "status": "paid"})
+
+
+@app.post("/orders/{order_id}/manual/fulfill")
+def fulfill_order(order_id: str) -> dict[str, str]:
+    return publish_manual_stage(order_id, "payment.completed", "order.fulfilled", "order.fulfilled", {"order_id": order_id, "status": "fulfilled"})

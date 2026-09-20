@@ -1,5 +1,6 @@
 provider "aws" {
-  region = var.aws_region
+  region  = var.aws_region
+  profile = "borys"
 }
 
 data "aws_availability_zones" "available" {

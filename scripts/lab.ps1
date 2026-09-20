@@ -24,7 +24,7 @@ switch ($Action) {
         Invoke-Compose @("up", "--detach", "--wait", "kafka")
         Invoke-Compose @("run", "--rm", "--no-deps", "topic-bootstrap")
         Invoke-Compose @("up", "--detach", "--no-deps", "kafka-ui")
-        Invoke-Compose @("up", "--detach", "--build", "--no-deps", "order-api", "payment-processor", "fulfillment-processor")
+        Invoke-Compose @("up", "--detach", "--build", "--no-deps", "order-api")
         Write-Host "Kafka UI: http://localhost:8080"
         Write-Host "Order API: http://localhost:8000/docs"
         Write-Host "Kafka bootstrap server: localhost:9092"

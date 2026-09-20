@@ -1,7 +1,15 @@
 #!/bin/bash
 set -euxo pipefail
 
-dnf install -y docker git
+dnf install -y docker git curl
+install -d -m 0755 /usr/local/lib/docker/cli-plugins
+curl -fsSL "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-aarch64" -o /usr/local/lib/docker/cli-plugins/docker-compose
+chmod 0755 /usr/local/lib/docker/cli-plugins/docker-compose
+curl -fsSL "https://github.com/docker/buildx/releases/download/v0.37.1/buildx-v0.37.1.linux-arm64" -o /usr/local/lib/docker/cli-plugins/docker-buildx
+echo "e5cc9fe3bbff5cbc91230981f7860e06076110730a2db997082652199042a1f2  /usr/local/lib/docker/cli-plugins/docker-buildx" | sha256sum --check
+chmod 0755 /usr/local/lib/docker/cli-plugins/docker-buildx
+docker compose version
+docker buildx version
 systemctl enable --now docker
 
 git clone --branch "${repository_ref}" --depth 1 "${repository_url}" /opt/kafka-learning-lab

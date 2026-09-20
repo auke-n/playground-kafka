@@ -8,18 +8,22 @@ The Event Timeline and Kafka UI are intentionally public on ports 8000 and 8080.
 
 ## Prerequisites
 
-- Terraform 1.8 or newer.
+- Terraform 1.10 or newer.
 - AWS CLI v2.
-- AWS credentials configured for an identity permitted to create VPC, EC2, IAM, and SSM resources in `eu-central-1`.
+- AWS shared configuration profile `borys`, permitted to create VPC, EC2, IAM, and SSM resources in `eu-central-1`.
+- S3 permissions for `personal-project-tfstate-156275709793-eu-central-1-an/playground-kafka/terraform.tfstate` and its `.tflock` lock file.
 
 ## Provision
 
 ```powershell
 cd infra/terraform
+aws sts get-caller-identity --profile borys
 terraform init
 terraform plan
 terraform apply
 ```
+
+The backend is an existing S3 bucket. Run `terraform init -reconfigure` if you previously initialized this directory with a different backend.
 
 Record the `instance_id`, `event_timeline_url`, and `kafka_ui_url` outputs. Cloud-init needs several minutes to install packages, clone the repository, pull images, and build Python services.
 
@@ -47,6 +51,29 @@ From an SSM shell after pushing a new commit to `main`:
 ```bash
 cd /opt/kafka-learning-lab
 sudo git pull --ff-only
+sudo COMPOSE_BAKE=false docker compose --file platform/compose/docker-compose.yml up --detach --build
+```
+
+## Install Docker plugins on an existing instance
+
+Cloud-init installs ARM64 Compose and Buildx plugins for new instances. If an existing instance reports `compose build requires buildx 0.17.0 or later`, install or replace both plugins through an SSM shell:
+
+```bash
+sudo dnf install -y curl
+sudo install -d -m 0755 /usr/local/lib/docker/cli-plugins
+sudo curl -fsSL "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-aarch64" -o /usr/local/lib/docker/cli-plugins/docker-compose
+sudo chmod 0755 /usr/local/lib/docker/cli-plugins/docker-compose
+sudo curl -fsSL "https://github.com/docker/buildx/releases/download/v0.37.1/buildx-v0.37.1.linux-arm64" -o /usr/local/lib/docker/cli-plugins/docker-buildx
+echo "e5cc9fe3bbff5cbc91230981f7860e06076110730a2db997082652199042a1f2  /usr/local/lib/docker/cli-plugins/docker-buildx" | sudo sha256sum --check
+sudo chmod 0755 /usr/local/lib/docker/cli-plugins/docker-buildx
+docker compose version
+docker buildx version
+```
+
+Then build and start the stack normally:
+
+```bash
+cd /opt/kafka-learning-lab
 sudo docker compose --file platform/compose/docker-compose.yml up --detach --build
 ```
 

@@ -26,10 +26,10 @@ variable "instance_type" {
 
 variable "vpc_cidr" {
   type    = string
-  default = "10.42.0.0/16"
+  default = "172.31.0.0/16"
 }
 
 variable "public_subnet_cidr" {
   type    = string
-  default = "10.42.1.0/24"
+  default = "172.31.0.0/20"
 }
