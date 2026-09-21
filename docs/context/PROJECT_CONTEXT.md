@@ -40,7 +40,7 @@ Build a practical Kafka learning lab for a DevOps engineer preparing for a proje
 - Amazon Linux 2023 ships `curl-minimal`; cloud-init uses its existing `curl` command and does not install the conflicting full `curl` package.
 - The web UI defaults to manually stepped event processing; automatic consumers use the Compose `automatic` profile.
 - EC2 capacity is selected through the `availability_zone` Terraform variable so temporary Graviton capacity shortages can be handled without code changes.
-- The demo UI renders a stage immediately after Kafka broker delivery acknowledgment, while the observer consumer independently verifies the record without duplicate timeline entries.
+- The demo UI renders a stage from the same API response that confirms Kafka broker delivery, while the observer consumer independently verifies the record without duplicate timeline entries.
 
 ## Context maintenance
 
