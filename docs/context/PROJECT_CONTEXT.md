@@ -41,6 +41,7 @@ Build a practical Kafka learning lab for a DevOps engineer preparing for a proje
 - The web UI defaults to manually stepped event processing; automatic consumers use the Compose `automatic` profile.
 - EC2 capacity is selected through the `availability_zone` Terraform variable so temporary Graviton capacity shortages can be handled without code changes.
 - The demo UI renders a stage as `Queued for Kafka` synchronously on the user's click, then replaces that optimistic state with the broker-confirmed record returned by the same API request. A manual stage fails within one second if Kafka cannot confirm delivery. The observer consumer independently verifies the record without duplicate timeline entries.
+- Timeline polling does not replace unchanged UI elements, so a user interaction cannot be lost to a background refresh.
 
 ## Context maintenance
 

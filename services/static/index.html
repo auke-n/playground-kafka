@@ -31,6 +31,7 @@
     let id = '';
     let pending = [];
     let confirmed = [];
+    let renderedState = '';
     const out = document.querySelector('#events');
     const actionsOut = document.querySelector('#actions');
     const idInput = document.querySelector('#id');
@@ -49,7 +50,11 @@
     function render(events) {
       confirmed = events;
       pending = pending.filter(event => !events.some(entry => entry.event_id === event.event_id));
-      draw([...events, ...pending]);
+      const visibleEvents = [...events, ...pending];
+      const nextRenderedState = JSON.stringify(visibleEvents);
+      if (nextRenderedState === renderedState) return;
+      renderedState = nextRenderedState;
+      draw(visibleEvents);
     }
 
     function localStage(topic) {
@@ -65,7 +70,7 @@
     async function poll() {
       const response = await responseJson(await fetch(`/orders/${id}/timeline`));
       render(response.events);
-      timer = setTimeout(poll, 50);
+      timer = setTimeout(poll, 250);
     }
 
     async function step(path) {
@@ -90,6 +95,7 @@
       id = idInput.value;
       pending = [];
       confirmed = [];
+      renderedState = '';
       document.querySelector('#title').textContent = `Order ${id}`;
       const local = localStage('order.created');
       pending.push(local);
@@ -102,7 +108,7 @@
         }));
         pending = [];
         render(response.events);
-        timer = setTimeout(poll, 50);
+        timer = setTimeout(poll, 250);
       } catch (error) {
         pending = [];
         render([]);
