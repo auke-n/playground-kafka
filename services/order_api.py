@@ -26,7 +26,7 @@ def observe_events() -> None:
     event_consumer.subscribe(["order.created", "payment.requested", "payment.completed", "order.fulfilled", "order.retry", "order.dlq"])
     try:
         while not observer_stop.is_set():
-            message = event_consumer.poll(0.5)
+            message = event_consumer.poll(0.05)
             if message is None or message.error():
                 continue
             try:

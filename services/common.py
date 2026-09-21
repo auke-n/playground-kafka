@@ -27,7 +27,13 @@ def new_event(event_type: str, order_id: str, data: dict[str, Any]) -> dict[str,
 
 
 def producer() -> Producer:
-    return Producer({"bootstrap.servers": BOOTSTRAP_SERVERS, "client.id": os.getenv("SERVICE_NAME", "learning-lab")})
+    return Producer(
+        {
+            "bootstrap.servers": BOOTSTRAP_SERVERS,
+            "client.id": os.getenv("SERVICE_NAME", "learning-lab"),
+            "linger.ms": 0,
+        }
+    )
 
 
 def publish(client: Producer, topic: str, event: dict[str, Any]) -> None:
@@ -55,6 +61,8 @@ def consumer(group_id: str) -> Consumer:
             "group.id": group_id,
             "auto.offset.reset": "earliest",
             "enable.auto.commit": False,
+            "fetch.min.bytes": 1,
+            "fetch.wait.max.ms": 50,
         }
     )
 

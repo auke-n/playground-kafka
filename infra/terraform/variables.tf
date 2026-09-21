@@ -33,3 +33,9 @@ variable "public_subnet_cidr" {
   type    = string
   default = "172.31.0.0/20"
 }
+
+variable "availability_zone" {
+  type        = string
+  description = "Availability Zone for the single-instance learning lab. Change it when an instance type has no capacity."
+  default     = "eu-central-1b"
+}

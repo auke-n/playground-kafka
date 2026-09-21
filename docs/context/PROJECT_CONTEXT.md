@@ -37,7 +37,9 @@ Build a practical Kafka learning lab for a DevOps engineer preparing for a proje
 - Terraform state is stored in the existing S3 bucket `personal-project-tfstate-156275709793-eu-central-1-an` at `playground-kafka/terraform.tfstate` with encryption and S3 lockfiles.
 - Terraform uses the local AWS shared configuration profile `borys` for provider and backend access.
 - EC2 startup installs explicit ARM64 Docker Compose and Buildx plugins because the Amazon Linux Docker package can provide an older Buildx plugin that is incompatible with Compose builds.
+- Amazon Linux 2023 ships `curl-minimal`; cloud-init uses its existing `curl` command and does not install the conflicting full `curl` package.
 - The web UI defaults to manually stepped event processing; automatic consumers use the Compose `automatic` profile.
+- EC2 capacity is selected through the `availability_zone` Terraform variable so temporary Graviton capacity shortages can be handled without code changes.
 
 ## Context maintenance
 

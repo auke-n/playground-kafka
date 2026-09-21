@@ -3,10 +3,6 @@ provider "aws" {
   profile = "borys"
 }
 
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
 data "aws_ssm_parameter" "amazon_linux_2023_arm64" {
   name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64"
 }
@@ -26,7 +22,7 @@ resource "aws_internet_gateway" "this" {
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.this.id
   cidr_block              = var.public_subnet_cidr
-  availability_zone       = data.aws_availability_zones.available.names[0]
+  availability_zone       = var.availability_zone
   map_public_ip_on_launch = true
   tags                    = { Name = "${var.project_name}-public" }
 }

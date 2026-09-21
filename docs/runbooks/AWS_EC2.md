@@ -27,6 +27,20 @@ The backend is an existing S3 bucket. Run `terraform init -reconfigure` if you p
 
 Record the `instance_id`, `event_timeline_url`, and `kafka_ui_url` outputs. Cloud-init needs several minutes to install packages, clone the repository, pull images, and build Python services.
 
+## Insufficient EC2 capacity
+
+`InsufficientInstanceCapacity` means AWS has no available `t4g.large` capacity in the selected Availability Zone; it is not an IAM or Terraform configuration failure. Try another Frankfurt zone:
+
+```powershell
+terraform apply -var 'availability_zone=eu-central-1c'
+```
+
+Try `eu-central-1a`, `eu-central-1b`, and `eu-central-1c` one at a time. If none has capacity, use the smaller ARM64 alternative:
+
+```powershell
+terraform apply -var 'instance_type=t4g.medium'
+```
+
 ## Access and verify
 
 Start a shell through SSM:
@@ -59,7 +73,7 @@ sudo COMPOSE_BAKE=false docker compose --file platform/compose/docker-compose.ym
 Cloud-init installs ARM64 Compose and Buildx plugins for new instances. If an existing instance reports `compose build requires buildx 0.17.0 or later`, install or replace both plugins through an SSM shell:
 
 ```bash
-sudo dnf install -y curl
+curl --version
 sudo install -d -m 0755 /usr/local/lib/docker/cli-plugins
 sudo curl -fsSL "https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-aarch64" -o /usr/local/lib/docker/cli-plugins/docker-compose
 sudo chmod 0755 /usr/local/lib/docker/cli-plugins/docker-compose
