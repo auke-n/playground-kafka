@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import time
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -31,7 +32,9 @@ def producer() -> Producer:
         {
             "bootstrap.servers": BOOTSTRAP_SERVERS,
             "client.id": os.getenv("SERVICE_NAME", "learning-lab"),
+            "acks": "1",
             "linger.ms": 0,
+            "queue.buffering.max.ms": 0,
         }
     )
 
@@ -51,9 +54,13 @@ def publish(client: Producer, topic: str, event: dict[str, Any]) -> dict[str, An
         )
 
     client.produce(topic, key=event["correlation_id"], value=json.dumps(event), callback=delivered)
-    client.flush(10)
+    deadline = time.monotonic() + 1
+    while not delivery_error and not delivery_metadata and time.monotonic() < deadline:
+        client.poll(0.01)
     if delivery_error:
         raise RuntimeError(f"Kafka delivery failed: {delivery_error[0]}")
+    if not delivery_metadata:
+        raise RuntimeError("Kafka delivery was not confirmed within one second")
     return delivery_metadata
 
 
