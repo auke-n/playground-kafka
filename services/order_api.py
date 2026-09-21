@@ -1,12 +1,13 @@
 """HTTP producer for order-created events."""
 
 from contextlib import asynccontextmanager
+import logging
 from pathlib import Path
 from threading import Event, Lock, Thread
 from typing import Literal
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import BackgroundTasks, FastAPI, HTTPException, status
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -32,6 +33,19 @@ def add_timeline_stage(order_id: str, event: dict[str, object], metadata: dict[s
 def timeline_for_order(order_id: str) -> list[dict[str, object]]:
     with timeline_lock:
         return sorted(timeline.get(order_id, []), key=lambda event: str(event["occurred_at"]))
+
+
+def queued_stage(topic: str, event: dict[str, object]) -> dict[str, object]:
+    return {"event_id": event["event_id"], "topic": topic, "event_type": event["event_type"], "occurred_at": event["occurred_at"], "delivery_status": "queued"}
+
+
+def publish_and_record(order_id: str, topic: str, event: dict[str, object]) -> None:
+    try:
+        metadata = publish(kafka_producer, topic, event)
+    except RuntimeError:
+        logging.getLogger("order-api").exception("Kafka delivery failed topic=%s event_id=%s", topic, event["event_id"])
+        return
+    add_timeline_stage(order_id, event, metadata)
 
 
 def observe_events() -> None:
@@ -94,22 +108,18 @@ def order_timeline(order_id: str) -> dict[str, object]:
 
 
 @app.post("/orders", status_code=status.HTTP_202_ACCEPTED)
-def create_order(request: OrderRequest) -> dict[str, object]:
+def create_order(request: OrderRequest, background_tasks: BackgroundTasks) -> dict[str, object]:
     order_id = request.order_id or f"order-{uuid4()}"
     details = {"order_id": order_id, **request.model_dump(exclude={"order_id"})}
     event = new_event("order.created", order_id, details)
-    try:
-        metadata = publish(kafka_producer, "order.created", event)
-    except RuntimeError as error:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
     with timeline_lock:
         order_details[order_id] = details
         manual_stages[order_id] = {"order.created"}
-    add_timeline_stage(order_id, event, metadata)
-    return {"status": "accepted", "order_id": order_id, "event_id": event["event_id"], "events": timeline_for_order(order_id)}
+    background_tasks.add_task(publish_and_record, order_id, "order.created", event)
+    return {"status": "queued", "order_id": order_id, "queued_stage": queued_stage("order.created", event), "events": timeline_for_order(order_id)}
 
 
-def publish_manual_stage(order_id: str, prerequisite: str, topic: str, event_type: str, data: dict[str, object]) -> dict[str, object]:
+def publish_manual_stage(order_id: str, prerequisite: str, topic: str, event_type: str, data: dict[str, object], background_tasks: BackgroundTasks) -> dict[str, object]:
     already_completed = False
     with timeline_lock:
         if order_id not in order_details:
@@ -121,23 +131,22 @@ def publish_manual_stage(order_id: str, prerequisite: str, topic: str, event_typ
     if already_completed:
         return {"status": "already_completed", "order_id": order_id, "topic": topic, "events": timeline_for_order(order_id)}
     event = new_event(event_type, order_id, data)
-    metadata = publish(kafka_producer, topic, event)
     with timeline_lock:
         manual_stages[order_id].add(topic)
-    add_timeline_stage(order_id, event, metadata)
-    return {"status": "published", "order_id": order_id, "topic": topic, "events": timeline_for_order(order_id)}
+    background_tasks.add_task(publish_and_record, order_id, topic, event)
+    return {"status": "queued", "order_id": order_id, "topic": topic, "queued_stage": queued_stage(topic, event), "events": timeline_for_order(order_id)}
 
 
 @app.post("/orders/{order_id}/manual/payment-request")
-def request_payment(order_id: str) -> dict[str, object]:
-    return publish_manual_stage(order_id, "order.created", "payment.requested", "payment.requested", {"order_id": order_id, "amount": order_details.get(order_id, {}).get("amount")})
+def request_payment(order_id: str, background_tasks: BackgroundTasks) -> dict[str, object]:
+    return publish_manual_stage(order_id, "order.created", "payment.requested", "payment.requested", {"order_id": order_id, "amount": order_details.get(order_id, {}).get("amount")}, background_tasks)
 
 
 @app.post("/orders/{order_id}/manual/payment-complete")
-def complete_payment(order_id: str) -> dict[str, object]:
-    return publish_manual_stage(order_id, "payment.requested", "payment.completed", "payment.completed", {"order_id": order_id, "amount": order_details.get(order_id, {}).get("amount"), "status": "paid"})
+def complete_payment(order_id: str, background_tasks: BackgroundTasks) -> dict[str, object]:
+    return publish_manual_stage(order_id, "payment.requested", "payment.completed", "payment.completed", {"order_id": order_id, "amount": order_details.get(order_id, {}).get("amount"), "status": "paid"}, background_tasks)
 
 
 @app.post("/orders/{order_id}/manual/fulfill")
-def fulfill_order(order_id: str) -> dict[str, object]:
-    return publish_manual_stage(order_id, "payment.completed", "order.fulfilled", "order.fulfilled", {"order_id": order_id, "status": "fulfilled"})
+def fulfill_order(order_id: str, background_tasks: BackgroundTasks) -> dict[str, object]:
+    return publish_manual_stage(order_id, "payment.completed", "order.fulfilled", "order.fulfilled", {"order_id": order_id, "status": "fulfilled"}, background_tasks)
