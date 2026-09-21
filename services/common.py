@@ -36,13 +36,15 @@ def producer() -> Producer:
     )
 
 
-def publish(client: Producer, topic: str, event: dict[str, Any]) -> None:
+def publish(client: Producer, topic: str, event: dict[str, Any]) -> dict[str, Any]:
     delivery_error: list[str] = []
+    delivery_metadata: dict[str, Any] = {}
 
     def delivered(error: Any, message: Any) -> None:
         if error is not None:
             delivery_error.append(str(error))
             return
+        delivery_metadata.update({"topic": message.topic(), "partition": message.partition(), "offset": message.offset()})
         logging.getLogger("kafka.producer").info(
             "published topic=%s partition=%s offset=%s event_id=%s",
             message.topic(), message.partition(), message.offset(), event["event_id"],
@@ -52,6 +54,7 @@ def publish(client: Producer, topic: str, event: dict[str, Any]) -> None:
     client.flush(10)
     if delivery_error:
         raise RuntimeError(f"Kafka delivery failed: {delivery_error[0]}")
+    return delivery_metadata
 
 
 def consumer(group_id: str) -> Consumer:

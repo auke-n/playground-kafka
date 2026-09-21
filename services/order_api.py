@@ -21,6 +21,14 @@ timeline_lock = Lock()
 observer_stop = Event()
 
 
+def add_timeline_stage(order_id: str, event: dict[str, object], metadata: dict[str, object]) -> None:
+    stage = {"event_id": event["event_id"], "topic": metadata["topic"], "event_type": event["event_type"], "occurred_at": event["occurred_at"], "partition": metadata["partition"], "offset": metadata["offset"]}
+    with timeline_lock:
+        entries = timeline.setdefault(order_id, [])
+        if not any(entry["event_id"] == stage["event_id"] for entry in entries):
+            entries.append(stage)
+
+
 def observe_events() -> None:
     event_consumer = consumer("order-timeline-observer-v1")
     event_consumer.subscribe(["order.created", "payment.requested", "payment.completed", "order.fulfilled", "order.retry", "order.dlq"])
@@ -32,9 +40,7 @@ def observe_events() -> None:
             try:
                 event = decode(message)
                 order_id = event["correlation_id"]
-                stage = {"topic": message.topic(), "event_type": event["event_type"], "occurred_at": event["occurred_at"], "partition": message.partition(), "offset": message.offset()}
-                with timeline_lock:
-                    timeline.setdefault(order_id, []).append(stage)
+                add_timeline_stage(order_id, event, {"topic": message.topic(), "partition": message.partition(), "offset": message.offset()})
             except (KeyError, UnicodeDecodeError, ValueError) as error:
                 logging.getLogger("timeline-observer").warning(
                     "ignored_invalid_event topic=%s partition=%s offset=%s error=%s",
@@ -89,12 +95,13 @@ def create_order(request: OrderRequest) -> dict[str, str]:
     details = {"order_id": order_id, **request.model_dump(exclude={"order_id"})}
     event = new_event("order.created", order_id, details)
     try:
-        publish(kafka_producer, "order.created", event)
+        metadata = publish(kafka_producer, "order.created", event)
     except RuntimeError as error:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
     with timeline_lock:
         order_details[order_id] = details
         manual_stages[order_id] = {"order.created"}
+    add_timeline_stage(order_id, event, metadata)
     return {"status": "accepted", "order_id": order_id, "event_id": event["event_id"]}
 
 
@@ -106,9 +113,11 @@ def publish_manual_stage(order_id: str, prerequisite: str, topic: str, event_typ
             raise HTTPException(status_code=409, detail=f"Complete {prerequisite} first.")
         if topic in manual_stages[order_id]:
             return {"status": "already_completed", "order_id": order_id, "topic": topic}
-    publish(kafka_producer, topic, new_event(event_type, order_id, data))
+    event = new_event(event_type, order_id, data)
+    metadata = publish(kafka_producer, topic, event)
     with timeline_lock:
         manual_stages[order_id].add(topic)
+    add_timeline_stage(order_id, event, metadata)
     return {"status": "published", "order_id": order_id, "topic": topic}
 
 
