@@ -12,4 +12,5 @@ This branch uses `AWS::MSK::Serverless` instead of a self-managed EC2 Kafka brok
 
 - Clients use private MSK endpoints, TLS, and IAM authentication.
 - The demo host needs an IAM role; no Kafka passwords are stored.
+- The EC2 IMDSv2 hop limit is set to `2` so Docker containers can retrieve instance-profile credentials for MSK IAM authentication.
 - MSK Serverless has managed-service cost and provisioning time.

@@ -105,7 +105,7 @@ Resources:
       IamInstanceProfile: !Ref DemoInstanceProfile
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds: [!Ref DemoSecurityGroup]
-      MetadataOptions: {HttpTokens: required}
+      MetadataOptions: {HttpTokens: required, HttpPutResponseHopLimit: 2}
       Tags: [{Key: Name, Value: !Sub '${ProjectName}-demo-host'}]
       UserData:
         Fn::Base64: !Sub |
