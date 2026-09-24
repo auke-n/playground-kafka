@@ -34,6 +34,7 @@ Build a practical Kafka learning lab for a DevOps engineer preparing for a proje
 - Docker Desktop is required to run the local lab on the current Windows development machine; it was not available during the initial implementation check.
 - The persistent local Kafka volume is initialized by a one-shot root container so the broker's non-root runtime user can write KRaft metadata on Docker Desktop.
 - The MSK CloudFormation deployment targets `eu-central-1`; a Graviton EC2 host administered through SSM runs only the demo services and Kafka UI. MSK brokers remain private and use IAM authentication.
+- The demo host defaults to `t4g.small`; it hosts no Kafka broker. Use `t4g.medium` only if the Java-based Kafka UI needs more memory during a demonstration.
 - EC2 startup installs explicit ARM64 Docker Compose and Buildx plugins because the Amazon Linux Docker package can provide an older Buildx plugin that is incompatible with Compose builds.
 - Amazon Linux 2023 ships `curl-minimal`; cloud-init uses its existing `curl` command and does not install the conflicting full `curl` package.
 - The web UI defaults to manually stepped event processing; automatic consumers use the Compose `automatic` profile.
