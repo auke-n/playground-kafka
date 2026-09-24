@@ -10,6 +10,6 @@
 | BL-006 | Add retries, DLQ, logs, and metrics | 2 | Should | In progress |
 | BL-007 | Add Prometheus and Grafana dashboards | 3 | Must | Planned |
 | BL-008 | Implement a minimal Kafka-backed event timeline UI | 3 | Could | Done |
-| BL-009 | Add Terraform EC2 infrastructure and secure access | 4 | Must | In progress |
+| BL-009 | Add CloudFormation MSK infrastructure and secure access | 4 | Must | In progress |
 | BL-010 | Add deployment and teardown runbooks | 4 | Must | In progress |
 | BL-011 | Add guided exercises and interview cheat sheet | 5 | Must | Planned |

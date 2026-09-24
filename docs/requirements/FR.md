@@ -8,6 +8,6 @@
 | FR-004 | Consumer services process order events as a consumer group. | Must | Group state and offsets are visible. |
 | FR-005 | The lab visualizes broker and consumer health. | Must | Grafana shows throughput and consumer lag. |
 | FR-006 | The lab demonstrates retry and dead-letter handling. | Should | A forced failure produces observable retry/DLQ records. |
-| FR-007 | Terraform provisions a minimal EC2 learning environment. | Must | `plan`, `apply`, and destroy runbook are available. |
+| FR-007 | CloudFormation provisions a managed MSK learning environment. | Must | Deploy and delete runbook are available. |
 | FR-008 | The learner can follow practical Kafka and incident exercises. | Must | Exercises and runbooks exist. |
 | FR-009 | A web event-timeline UI is available. | Could | Optional phase accepted only if it adds learning value. |

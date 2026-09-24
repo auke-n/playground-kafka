@@ -23,9 +23,9 @@ Kafka broker (single node, KRaft mode)
 | Layer | Local lab | AWS demo |
 | --- | --- | --- |
 | Runtime | Docker Compose | Docker Compose on one EC2 instance |
-| Infrastructure | None | Terraform |
-| Kafka metadata mode | KRaft | KRaft |
-| Broker count | 1 | 1 |
+| Infrastructure | None | CloudFormation |
+| Kafka metadata mode | KRaft | AWS managed |
+| Broker count | 1 | Serverless |
 | Visibility | Kafka UI, Prometheus, Grafana | Kafka UI, Prometheus, Grafana |
 
 The local Compose stack uses a named volume for Kafka data. A one-shot initialization container assigns that volume to Kafka's non-root container user before the broker starts.
@@ -49,4 +49,4 @@ The local Compose stack uses a named volume for Kafka data. A one-shot initializ
 - Allow SSH only from an explicitly configured administrator CIDR, or prefer AWS SSM later.
 - Do not expose Kafka's broker port to the public internet.
 - Restrict Kafka UI and Grafana to a trusted CIDR or access them through an SSH tunnel.
-- Store secrets outside Git and never commit Terraform state.
+- Store secrets outside Git and never commit credentials.

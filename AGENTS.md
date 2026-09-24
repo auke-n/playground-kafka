@@ -14,7 +14,7 @@ A material change includes an architectural decision, a new capability, a change
 
 ## Engineering workflow
 
-- Keep infrastructure reproducible and reviewable as Terraform plus versioned configuration.
+- Keep infrastructure reproducible and reviewable as CloudFormation plus versioned configuration.
 - Keep local development independent from AWS where possible.
 - Treat the EC2 deployment as a learning/demo environment, not production.
 - Add an ADR before or with an irreversible or consequential technical decision.
@@ -23,6 +23,6 @@ A material change includes an architectural decision, a new capability, a change
 
 ## Safety
 
-- Never commit credentials, private keys, Terraform state, or real AWS account identifiers.
+- Never commit credentials, private keys, CloudFormation exports containing secrets, or real AWS account identifiers.
 - Use `.env.example` files for non-secret configuration examples.
 - Prefer least-privilege security groups and private service ports.

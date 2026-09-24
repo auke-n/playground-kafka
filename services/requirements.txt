@@ -1,3 +1,4 @@
 confluent-kafka==2.8.0
+aws-msk-iam-sasl-signer-python==1.0.2
 fastapi==0.115.12
 uvicorn[standard]==0.34.0

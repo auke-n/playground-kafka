@@ -13,8 +13,8 @@ Build a practical Kafka learning lab for a DevOps engineer preparing for a proje
 ## Scope
 
 - A local, Docker-based development lab.
-- An AWS EC2 deployment provisioned with Terraform.
-- A single-node Kafka deployment in KRaft mode for learning and demonstration.
+- An AWS MSK Serverless deployment provisioned with CloudFormation.
+- A single-node local KRaft deployment and AWS managed MSK Serverless for demonstration.
 - A FastAPI order producer and Python payment and fulfillment consumers that model an order-processing workflow.
 - Operational visibility through Kafka UI, Prometheus-compatible metrics, and Grafana dashboards.
 - Guided exercises and operational runbooks.
@@ -33,13 +33,10 @@ Build a practical Kafka learning lab for a DevOps engineer preparing for a proje
 - Kafka UI and Grafana will not be publicly exposed without authentication or network restriction.
 - Docker Desktop is required to run the local lab on the current Windows development machine; it was not available during the initial implementation check.
 - The persistent local Kafka volume is initialized by a one-shot root container so the broker's non-root runtime user can write KRaft metadata on Docker Desktop.
-- AWS deployment targets `eu-central-1` on a Graviton `t4g.large` instance administered through SSM. Only ports 8000 and 8080 are public; Kafka remains loopback-bound.
-- Terraform state is stored in the existing S3 bucket `personal-project-tfstate-156275709793-eu-central-1-an` at `playground-kafka/terraform.tfstate` with encryption and S3 lockfiles.
-- Terraform uses the local AWS shared configuration profile `borys` for provider and backend access.
+- The MSK CloudFormation deployment targets `eu-central-1`; a Graviton EC2 host administered through SSM runs only the demo services and Kafka UI. MSK brokers remain private and use IAM authentication.
 - EC2 startup installs explicit ARM64 Docker Compose and Buildx plugins because the Amazon Linux Docker package can provide an older Buildx plugin that is incompatible with Compose builds.
 - Amazon Linux 2023 ships `curl-minimal`; cloud-init uses its existing `curl` command and does not install the conflicting full `curl` package.
 - The web UI defaults to manually stepped event processing; automatic consumers use the Compose `automatic` profile.
-- EC2 capacity is selected through the `availability_zone` Terraform variable so temporary Graviton capacity shortages can be handled without code changes.
 - The demo UI renders a stage as `Queued for Kafka` synchronously on the user's click, then replaces that optimistic state with the broker-confirmed record returned by the same API request. A manual stage fails within one second if Kafka cannot confirm delivery. The observer consumer independently verifies the record without duplicate timeline entries.
 - Timeline polling does not replace unchanged UI elements, so a user interaction cannot be lost to a background refresh.
 

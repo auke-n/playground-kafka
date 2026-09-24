@@ -1,0 +1,130 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Managed MSK Serverless Kafka learning lab with an EC2-hosted demo UI.
+Parameters:
+  ProjectName:
+    Type: String
+    Default: kafka-learning-lab
+  RepositoryUrl:
+    Type: String
+    Default: https://github.com/auke-n/playground-kafka.git
+  RepositoryRef:
+    Type: String
+    Default: feature/msk-cloudformation
+  InstanceType:
+    Type: String
+    Default: t4g.medium
+  PublicSubnetCidr:
+    Type: String
+    Default: 10.43.0.0/24
+  PrivateSubnetACidr:
+    Type: String
+    Default: 10.43.10.0/24
+  PrivateSubnetBCidr:
+    Type: String
+    Default: 10.43.11.0/24
+Resources:
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties: {CidrBlock: 10.43.0.0/16, EnableDnsHostnames: true, EnableDnsSupport: true}
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  GatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: {InternetGatewayId: !Ref InternetGateway, VpcId: !Ref Vpc}
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties: {VpcId: !Ref Vpc}
+  InternetRoute:
+    Type: AWS::EC2::Route
+    DependsOn: GatewayAttachment
+    Properties: {RouteTableId: !Ref PublicRouteTable, DestinationCidrBlock: 0.0.0.0/0, GatewayId: !Ref InternetGateway}
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties: {VpcId: !Ref Vpc, CidrBlock: !Ref PublicSubnetCidr, MapPublicIpOnLaunch: true, AvailabilityZone: !Select [0, !GetAZs '']}
+  PublicSubnetAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties: {SubnetId: !Ref PublicSubnet, RouteTableId: !Ref PublicRouteTable}
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties: {VpcId: !Ref Vpc, CidrBlock: !Ref PrivateSubnetACidr, AvailabilityZone: !Select [0, !GetAZs '']}
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties: {VpcId: !Ref Vpc, CidrBlock: !Ref PrivateSubnetBCidr, AvailabilityZone: !Select [1, !GetAZs '']}
+  DemoSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Public HTTP only for the disposable learning UI
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 8000, ToPort: 8000, CidrIp: 0.0.0.0/0}
+        - {IpProtocol: tcp, FromPort: 8080, ToPort: 8080, CidrIp: 0.0.0.0/0}
+  MskSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: MSK IAM listener accepts only the demo instance
+      VpcId: !Ref Vpc
+      SecurityGroupIngress:
+        - {IpProtocol: tcp, FromPort: 9098, ToPort: 9098, SourceSecurityGroupId: !Ref DemoSecurityGroup}
+  MskCluster:
+    Type: AWS::MSK::ServerlessCluster
+    Properties:
+      ClusterName: !Ref ProjectName
+      ClientAuthentication: {Sasl: {Iam: {Enabled: true}}}
+      VpcConfigs:
+        - SubnetIds: [!Ref PrivateSubnetA, !Ref PrivateSubnetB]
+          SecurityGroups: [!Ref MskSecurityGroup]
+      Tags: {Project: !Ref ProjectName, Purpose: learning-demo}
+  DemoRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument: {Version: '2012-10-17', Statement: [{Effect: Allow, Principal: {Service: ec2.amazonaws.com}, Action: 'sts:AssumeRole'}]}
+      ManagedPolicyArns: [arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore]
+      Policies:
+        - PolicyName: MskDemoAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [kafka:GetBootstrapBrokers]
+                Resource: !Ref MskCluster
+              - Effect: Allow
+                Action: ['kafka-cluster:Connect', 'kafka-cluster:DescribeCluster', 'kafka-cluster:AlterCluster', 'kafka-cluster:CreateTopic', 'kafka-cluster:DescribeTopic', 'kafka-cluster:ReadData', 'kafka-cluster:WriteData', 'kafka-cluster:DescribeGroup', 'kafka-cluster:AlterGroup']
+                Resource: '*'
+  DemoInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties: {Roles: [!Ref DemoRole]}
+  DemoInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Sub '{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64}}'
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref DemoInstanceProfile
+      SubnetId: !Ref PublicSubnet
+      SecurityGroupIds: [!Ref DemoSecurityGroup]
+      MetadataOptions: {HttpTokens: required}
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          dnf install -y docker git
+          install -d -m 0755 /usr/local/lib/docker/cli-plugins
+          curl -fsSL https://github.com/docker/compose/releases/download/v5.5.0/docker-compose-linux-aarch64 -o /usr/local/lib/docker/cli-plugins/docker-compose
+          curl -fsSL https://github.com/docker/buildx/releases/download/v0.37.1/buildx-v0.37.1.linux-arm64 -o /usr/local/lib/docker/cli-plugins/docker-buildx
+          chmod 0755 /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/lib/docker/cli-plugins/docker-buildx
+          systemctl enable --now docker
+          git clone --branch ${RepositoryRef} --depth 1 ${RepositoryUrl} /opt/kafka-learning-lab
+          cd /opt/kafka-learning-lab
+          export CLUSTER_ARN='${MskCluster}'
+          until BOOTSTRAP=$(aws kafka get-bootstrap-brokers --cluster-arn "$CLUSTER_ARN" --query BootstrapBrokerStringSaslIam --output text); do sleep 15; done
+          cat > .env <<EOF
+          HTTP_HOST_BIND_ADDRESS=0.0.0.0
+          KAFKA_BOOTSTRAP_SERVERS=$BOOTSTRAP
+          KAFKA_AUTH_MODE=msk_iam
+          AWS_REGION=${AWS::Region}
+          EOF
+          docker compose --file platform/compose/docker-compose.msk.yml up --detach --build
+Outputs:
+  MskClusterArn: {Value: !Ref MskCluster}
+  DemoInstanceId: {Value: !Ref DemoInstance}
+  EventTimelineUrl: {Value: !Sub 'http://${DemoInstance.PublicDnsName}:8000'}
+  KafkaUiUrl: {Value: !Sub 'http://${DemoInstance.PublicDnsName}:8080'}

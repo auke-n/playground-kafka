@@ -13,6 +13,19 @@ from confluent_kafka import Consumer, Producer
 BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:19092")
 
 
+def client_config() -> dict[str, Any]:
+    config: dict[str, Any] = {"bootstrap.servers": BOOTSTRAP_SERVERS, "client.id": os.getenv("SERVICE_NAME", "learning-lab")}
+    if os.getenv("KAFKA_AUTH_MODE") == "msk_iam":
+        from aws_msk_iam_sasl_signer import MSKAuthTokenProvider
+
+        def oauth_callback(_: str) -> tuple[str, float]:
+            token, expiry_ms = MSKAuthTokenProvider.generate_auth_token(os.environ["AWS_REGION"])
+            return token, expiry_ms / 1000
+
+        config.update({"security.protocol": "SASL_SSL", "sasl.mechanisms": "OAUTHBEARER", "oauth_cb": oauth_callback})
+    return config
+
+
 def configure_logging() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 
@@ -28,15 +41,11 @@ def new_event(event_type: str, order_id: str, data: dict[str, Any]) -> dict[str,
 
 
 def producer() -> Producer:
-    return Producer(
-        {
-            "bootstrap.servers": BOOTSTRAP_SERVERS,
-            "client.id": os.getenv("SERVICE_NAME", "learning-lab"),
+    return Producer(client_config() | {
             "acks": "1",
             "linger.ms": 0,
             "queue.buffering.max.ms": 0,
-        }
-    )
+        })
 
 
 def publish(client: Producer, topic: str, event: dict[str, Any]) -> dict[str, Any]:
@@ -65,16 +74,13 @@ def publish(client: Producer, topic: str, event: dict[str, Any]) -> dict[str, An
 
 
 def consumer(group_id: str) -> Consumer:
-    return Consumer(
-        {
-            "bootstrap.servers": BOOTSTRAP_SERVERS,
+    return Consumer(client_config() | {
             "group.id": group_id,
             "auto.offset.reset": "earliest",
             "enable.auto.commit": False,
             "fetch.min.bytes": 1,
             "fetch.wait.max.ms": 50,
-        }
-    )
+        })
 
 
 def decode(message: Any) -> dict[str, Any]:

@@ -28,7 +28,7 @@ A small web UI is optional after this phase. It should visualize submitted order
 
 ### Phase 4 — AWS EC2 deployment
 
-Provision a minimal EC2 environment with Terraform, then install/run the versioned Docker Compose stack using cloud-init or a documented deployment command. Restrict inbound traffic and provide teardown instructions.
+Provision managed MSK and a minimal EC2 demo environment with CloudFormation, then install/run the versioned Docker Compose stack using cloud-init. Restrict inbound traffic and provide teardown instructions.
 
 ### Phase 5 — Interview and operations exercises
 
@@ -52,7 +52,7 @@ The documentation folders below are present now. Runtime folders will be created
 │   ├── guides/                       # Learning material and exercises
 │   └── runbooks/                     # Operational procedures
 ├── infra/
-│   └── terraform/                    # EC2 networking and instance definitions
+│   └── cloudformation/               # MSK networking and demo host definitions
 ├── platform/
 │   └── compose/                      # Kafka and observability Compose stack
 ├── services/
@@ -70,5 +70,5 @@ The documentation folders below are present now. Runtime folders will be created
 - An order event traverses multiple Kafka topics and services.
 - A learner can inspect records, offsets, consumer lag, and dashboards.
 - A failure path reaches a retry or dead-letter topic and is explainable.
-- Terraform can create and destroy the AWS demo infrastructure safely.
+- CloudFormation can create and delete the AWS demo infrastructure safely.
 - Documentation explains every component and includes exercises.
