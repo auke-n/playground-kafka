@@ -106,6 +106,7 @@ Resources:
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds: [!Ref DemoSecurityGroup]
       MetadataOptions: {HttpTokens: required}
+      Tags: [{Key: Name, Value: !Sub '${ProjectName}-demo-host'}]
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
