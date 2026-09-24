@@ -122,7 +122,7 @@ Resources:
           KAFKA_AUTH_MODE=msk_iam
           AWS_REGION=${AWS::Region}
           EOF
-          docker compose --file platform/compose/docker-compose.msk.yml up --detach --build
+          docker compose --env-file .env --file platform/compose/docker-compose.msk.yml up --detach --build
 Outputs:
   MskClusterArn: {Value: !Ref MskCluster}
   DemoInstanceId: {Value: !Ref DemoInstance}

@@ -21,6 +21,13 @@ aws cloudformation describe-stacks --profile borys --region eu-central-1 --stack
 
 CloudFormation must first create MSK; this takes minutes. Once active, the EC2 user data fetches the private IAM bootstrap brokers and starts the demo services.
 
+For a manual update on the demo host, always pass the generated root `.env` file to Compose:
+
+```bash
+cd /opt/kafka-learning-lab
+sudo docker compose --env-file .env --file platform/compose/docker-compose.msk.yml up --detach --build
+```
+
 ## Manual and automatic modes
 
 Manual UI steps work unchanged. Do not run automatic consumers when demonstrating manual processing. The MSK client port 9098 is private and accepts traffic only from the demo EC2 security group.
