@@ -40,6 +40,7 @@ Build a practical Kafka learning lab for a DevOps engineer preparing for a proje
 - The web UI defaults to manually stepped event processing; automatic consumers use the Compose `automatic` profile.
 - The demo UI renders a stage as `Queued for Kafka` synchronously on the user's click, then replaces that optimistic state with the broker-confirmed record returned by the same API request. A manual stage fails within one second if Kafka cannot confirm delivery. The observer consumer independently verifies the record without duplicate timeline entries.
 - Timeline polling does not replace unchanged UI elements, so a user interaction cannot be lost to a background refresh.
+- The MSK Compose deployment pins Kafbat UI to `v1.3.0`: later releases display `N/A` instead of topic message totals in the topic-list view, even when records are present. The pinned version makes the demonstration counter observable.
 
 ## Context maintenance
 

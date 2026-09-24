@@ -6,7 +6,9 @@ services:
     environment: {SERVICE_NAME: topic-bootstrap}
     command: ["python", "-m", "services.topic_bootstrap"]
   kafka-ui:
-    image: ghcr.io/kafbat/kafka-ui:latest
+    # v1.3.0 preserves topic message totals in the topic-list view.
+    # Newer releases show N/A there despite records being readable per topic.
+    image: ghcr.io/kafbat/kafka-ui:v1.3.0
     ports: ["${HTTP_HOST_BIND_ADDRESS:-127.0.0.1}:8080:8080"]
     env_file: ../../.env
     environment:

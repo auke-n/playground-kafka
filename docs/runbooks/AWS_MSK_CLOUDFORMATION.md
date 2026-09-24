@@ -32,6 +32,8 @@ sudo docker compose --env-file .env --file platform/compose/docker-compose.msk.y
 
 Manual UI steps work unchanged. Do not run automatic consumers when demonstrating manual processing. The MSK client port 9098 is private and accepts traffic only from the demo EC2 security group.
 
+Kafbat UI is intentionally pinned to `v1.3.0` for the MSK deployment. The newer UI releases can display `N/A` in the topic-list message-count column even though records are readable; the pinned release keeps the counter useful during the demo.
+
 ## Delete
 
 ```powershell
