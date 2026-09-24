@@ -1,10 +1,13 @@
 """Create the learning topics on a managed Kafka cluster."""
-from confluent_kafka.admin import AdminClient, NewTopic
-from services.common import client_config, configure_logging
+from kafka.admin import KafkaAdminClient, NewTopic
+from kafka.errors import TopicAlreadyExistsError
+from services.common import configure_logging, msk_python_config
 configure_logging()
 topics = ["order.created", "payment.requested", "payment.completed", "order.fulfilled", "order.retry", "order.dlq"]
-admin = AdminClient(client_config())
-for name, future in admin.create_topics([NewTopic(topic, num_partitions=3, replication_factor=1) for topic in topics]).items():
-    try: future.result()
-    except Exception as error:
-        if "TOPIC_ALREADY_EXISTS" not in str(error): raise
+admin = KafkaAdminClient(**msk_python_config())
+try:
+    admin.create_topics([NewTopic(topic, num_partitions=3, replication_factor=1) for topic in topics])
+except TopicAlreadyExistsError:
+    pass
+finally:
+    admin.close()

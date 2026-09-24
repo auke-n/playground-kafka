@@ -13,6 +13,63 @@ from confluent_kafka import Consumer, Producer
 BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:19092")
 
 
+def is_msk_iam() -> bool:
+    return os.getenv("KAFKA_AUTH_MODE") == "msk_iam"
+
+
+def msk_python_config(group_id: str | None = None) -> dict[str, Any]:
+    from aws_msk_iam_sasl_signer import MSKAuthTokenProvider
+    from kafka.sasl.oauth import AbstractTokenProvider
+
+    class MskTokenProvider(AbstractTokenProvider):
+        def token(self) -> str:
+            return MSKAuthTokenProvider.generate_auth_token(os.environ["AWS_REGION"])[0]
+
+    config: dict[str, Any] = {
+        "bootstrap_servers": BOOTSTRAP_SERVERS.split(","),
+        "security_protocol": "SASL_SSL",
+        "sasl_mechanism": "OAUTHBEARER",
+        "sasl_oauth_token_provider": MskTokenProvider(),
+        "client_id": os.getenv("SERVICE_NAME", "learning-lab"),
+    }
+    if group_id:
+        config.update({"group_id": group_id, "auto_offset_reset": "earliest", "enable_auto_commit": False})
+    return config
+
+
+class MskMessage:
+    def __init__(self, record: Any): self.record = record
+    def error(self) -> None: return None
+    def value(self) -> bytes: return self.record.value
+    def key(self) -> bytes | None: return self.record.key
+    def topic(self) -> str: return self.record.topic
+    def partition(self) -> int: return self.record.partition
+    def offset(self) -> int: return self.record.offset
+
+
+class MskProducer:
+    def __init__(self):
+        from kafka import KafkaProducer
+        self.client = KafkaProducer(**msk_python_config())
+    def produce(self, topic: str, key: str, value: str, callback: Any) -> None:
+        metadata = self.client.send(topic, key=key.encode(), value=value.encode()).get(timeout=10)
+        callback(None, type("Delivery", (), {"topic": lambda _: metadata.topic, "partition": lambda _: metadata.partition, "offset": lambda _: metadata.offset})())
+    def poll(self, _: float) -> None: return None
+    def flush(self, timeout: float | None = None) -> None: self.client.flush(timeout=timeout)
+
+
+class MskConsumer:
+    def __init__(self, group_id: str):
+        from kafka import KafkaConsumer
+        self.client = KafkaConsumer(**msk_python_config(group_id))
+    def subscribe(self, topics: list[str]) -> None: self.client.subscribe(topics)
+    def poll(self, timeout: float) -> MskMessage | None:
+        records = self.client.poll(timeout_ms=max(1, int(timeout * 1000)), max_records=1)
+        return MskMessage(next(iter(next(iter(records.values()))))) if records else None
+    def commit(self, **_: Any) -> None: self.client.commit()
+    def close(self) -> None: self.client.close()
+
+
 def client_config() -> dict[str, Any]:
     config: dict[str, Any] = {"bootstrap.servers": BOOTSTRAP_SERVERS, "client.id": os.getenv("SERVICE_NAME", "learning-lab")}
     if os.getenv("KAFKA_AUTH_MODE") == "msk_iam":
@@ -41,6 +98,8 @@ def new_event(event_type: str, order_id: str, data: dict[str, Any]) -> dict[str,
 
 
 def producer() -> Producer:
+    if is_msk_iam():
+        return MskProducer()  # type: ignore[return-value]
     return Producer(client_config() | {
             "acks": "1",
             "linger.ms": 0,
@@ -74,6 +133,8 @@ def publish(client: Producer, topic: str, event: dict[str, Any]) -> dict[str, An
 
 
 def consumer(group_id: str) -> Consumer:
+    if is_msk_iam():
+        return MskConsumer(group_id)  # type: ignore[return-value]
     return Consumer(client_config() | {
             "group.id": group_id,
             "auto.offset.reset": "earliest",
